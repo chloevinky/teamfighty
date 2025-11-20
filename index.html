@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TechFights - Grid Auto Battler</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="header">
+            <h1>TechFights</h1>
+            <div id="game-info">
+                <span id="round-display">Round: 1</span>
+                <span id="gold-display">Gold: 0</span>
+                <span id="hp-display">HP: 100</span>
+                <span id="phase-display">Phase: Prep</span>
+            </div>
+        </div>
+
+        <div id="main-area">
+            <!-- Game Board -->
+            <div id="board-container">
+                <canvas id="game-board" width="900" height="600"></canvas>
+            </div>
+
+            <!-- Control Panel -->
+            <div id="control-panel">
+                <div id="traits-display">
+                    <h3>Active Traits</h3>
+                    <div id="active-traits"></div>
+                </div>
+
+                <div id="controls">
+                    <button id="start-combat-btn">Start Combat</button>
+                    <button id="reroll-shop-btn">Reroll Shop (2g)</button>
+                    <button id="level-up-btn">Level Up</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bench Area -->
+        <div id="bench-area">
+            <h3>Bench</h3>
+            <div id="bench-slots"></div>
+        </div>
+
+        <!-- Shop Area -->
+        <div id="shop-area">
+            <h3>Shop</h3>
+            <div id="shop-slots"></div>
+        </div>
+
+        <!-- Unit Details Panel -->
+        <div id="unit-details" style="display: none;">
+            <h3 id="unit-name"></h3>
+            <p id="unit-title"></p>
+            <div id="unit-stats"></div>
+            <div id="unit-abilities"></div>
+        </div>
+    </div>
+
+    <script src="data/champions.js"></script>
+    <script src="data/traits.js"></script>
+    <script src="engine/constants.js"></script>
+    <script src="engine/utils.js"></script>
+    <script src="engine/unit.js"></script>
+    <script src="engine/board.js"></script>
+    <script src="engine/combat.js"></script>
+    <script src="engine/timemarks.js"></script>
+    <script src="engine/traits-engine.js"></script>
+    <script src="engine/shop.js"></script>
+    <script src="engine/renderer.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
