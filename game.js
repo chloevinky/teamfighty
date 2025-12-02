@@ -255,21 +255,24 @@ class TechFightsGame {
         enemyTeam.push(boss);
       }
     } else {
-      // Start with fewer enemies, scale more gradually
-      // Wave 1-2: 2 enemies, Wave 3-5: 3 enemies, Wave 6-8: 4, etc.
-      const enemyCount = Math.min(2 + Math.floor((waveNumber - 1) / 3), 5);
+      // Match player team size for fair fights
+      const enemyCount = this.playerTeam.length;
 
       for (let i = 0; i < enemyCount; i++) {
         const championData = this.getRandomChampion();
         // Star level increases every 8 waves
-        const starLevel = Math.min(1 + Math.floor((waveNumber - 1) / 8), 3);
+        const starLevel = Math.min(1 + Math.floor((waveNumber - 1) / 8), 4);
         const enemy = new Unit(championData, starLevel, 'enemy');
 
-        // More gradual stat scaling: +3% per wave for better balance
-        const waveMultiplier = 1 + (waveNumber - 1) * 0.03;
-        enemy.maxHp *= waveMultiplier;
+        // Base stat advantage (10%) + wave scaling (4% per wave)
+        // This compensates for enemies matching player count
+        const baseMultiplier = 1.1;
+        const waveMultiplier = 1 + (waveNumber - 1) * 0.04;
+        const totalMultiplier = baseMultiplier * waveMultiplier;
+
+        enemy.maxHp *= totalMultiplier;
         enemy.hp = enemy.maxHp;
-        enemy.attackDamage *= waveMultiplier;
+        enemy.attackDamage *= totalMultiplier;
 
         enemyTeam.push(enemy);
       }
