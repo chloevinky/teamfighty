@@ -12,6 +12,23 @@ class CombatEngine {
     this.isRunning = true;
     this.timeElapsed = 0;
     this.winner = null;
+
+    // Sanity check: make sure we have units
+    const playerCount = this.board.getAlivePlayerUnits().length;
+    const enemyCount = this.board.getAliveEnemyUnits().length;
+
+    console.log(`Combat starting with ${playerCount} player units vs ${enemyCount} enemy units`);
+
+    if (playerCount === 0) {
+      console.error('No alive player units at start of combat!');
+      this.endCombat('enemy');
+      return;
+    }
+    if (enemyCount === 0) {
+      console.error('No alive enemy units at start of combat!');
+      this.endCombat('player');
+      return;
+    }
   }
 
   stop() {

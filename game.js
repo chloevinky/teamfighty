@@ -49,6 +49,24 @@ class TechFightsGame {
     this.updateUI();
   }
 
+  healPlayerTeam() {
+    // Heal all player units to full HP and reset their state
+    this.playerTeam.forEach(unit => {
+      unit.hp = unit.maxHp;
+      unit.isDead = false;
+      unit.mana = 0;
+      unit.shield = 0;
+      unit.isStunned = false;
+      unit.isSilenced = false;
+      unit.isTaunted = false;
+      unit.tauntTarget = null;
+      unit.buffs = [];
+      unit.debuffs = [];
+      unit.target = null;
+      unit.attackTimer = 0;
+    });
+  }
+
   getRandomChampion() {
     const championId = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
     return CHAMPIONS_DATA[championId];
@@ -121,11 +139,18 @@ class TechFightsGame {
   startCombat() {
     if (this.gameState !== 'prep') return;
 
+    // Heal and reset all player units before combat
+    this.healPlayerTeam();
+
+    console.log(`Starting Wave ${this.currentWave}`);
+    console.log(`Player team size: ${this.playerTeam.length}`);
+
     // Position units automatically based on role
     this.positionTeamByRole(this.playerTeam, 'player');
 
     // Generate enemy team for this wave
     const enemyTeam = this.generateEnemyWave(this.currentWave);
+    console.log(`Enemy team size: ${enemyTeam.length}`);
     this.positionTeamByRole(enemyTeam, 'enemy');
 
     // Setup battle
@@ -158,28 +183,33 @@ class TechFightsGame {
   generateEnemyWave(waveNumber) {
     const enemyTeam = [];
 
-    // Scale difficulty with wave number
-    const enemyCount = Math.min(2 + Math.floor(waveNumber / 3), 6);
+    // More gradual scaling for better balance
     const isBoss = waveNumber === this.maxWaves;
 
     if (isBoss) {
-      // Boss wave: one super strong unit
-      const bossData = this.getRandomChampion();
-      const boss = new Unit(bossData, 3, 'enemy');
-      boss.maxHp *= 3;
-      boss.hp = boss.maxHp;
-      boss.attackDamage *= 2;
-      boss.name = `BOSS ${boss.name}`;
-      enemyTeam.push(boss);
+      // Boss wave: 2 super strong units
+      for (let i = 0; i < 2; i++) {
+        const bossData = this.getRandomChampion();
+        const boss = new Unit(bossData, 3, 'enemy');
+        boss.maxHp *= 2.5;
+        boss.hp = boss.maxHp;
+        boss.attackDamage *= 1.8;
+        boss.name = `BOSS ${boss.name}`;
+        enemyTeam.push(boss);
+      }
     } else {
-      // Normal wave: multiple units
+      // Start with fewer enemies, scale more gradually
+      // Wave 1-2: 2 enemies, Wave 3-5: 3 enemies, Wave 6-8: 4, etc.
+      const enemyCount = Math.min(2 + Math.floor((waveNumber - 1) / 3), 5);
+
       for (let i = 0; i < enemyCount; i++) {
         const championData = this.getRandomChampion();
-        const starLevel = Math.min(1 + Math.floor(waveNumber / 5), 3);
+        // Star level increases every 6 waves
+        const starLevel = Math.min(1 + Math.floor((waveNumber - 1) / 6), 3);
         const enemy = new Unit(championData, starLevel, 'enemy');
 
-        // Scale stats with wave number
-        const waveMultiplier = 1 + (waveNumber - 1) * 0.1;
+        // More gradual stat scaling: +5% per wave instead of +10%
+        const waveMultiplier = 1 + (waveNumber - 1) * 0.05;
         enemy.maxHp *= waveMultiplier;
         enemy.hp = enemy.maxHp;
         enemy.attackDamage *= waveMultiplier;
@@ -193,6 +223,12 @@ class TechFightsGame {
 
   endCombat() {
     const winner = this.combatEngine.winner;
+    const combatState = this.combatEngine.getCombatState();
+
+    console.log(`Combat ended! Winner: ${winner}`);
+    console.log(`Time elapsed: ${combatState.timeElapsed.toFixed(1)}s`);
+    console.log(`Player units alive: ${combatState.alivePlayerUnits}`);
+    console.log(`Enemy units alive: ${combatState.aliveEnemyUnits}`);
 
     if (winner === 'player') {
       // Victory
@@ -205,6 +241,8 @@ class TechFightsGame {
     } else {
       // Defeat
       this.playerHP -= 20;
+      console.log(`Lost wave! HP reduced to ${this.playerHP}`);
+
       if (this.playerHP <= 0) {
         this.showDefeatScreen();
       } else {
@@ -311,15 +349,20 @@ class TechFightsGame {
 
     // Update team display
     const teamContainer = document.getElementById('team-display');
-    teamContainer.innerHTML = '<h3>Your Team:</h3>';
+    teamContainer.innerHTML = `<h3>Your Team (${this.playerTeam.length}):</h3>`;
 
     this.playerTeam.forEach(unit => {
       const unitDiv = document.createElement('div');
       unitDiv.className = 'team-unit';
+      const hpPercent = (unit.hp / unit.maxHp * 100).toFixed(0);
+      const hpColor = hpPercent > 66 ? '#00ff88' : hpPercent > 33 ? '#ffaa00' : '#ff4444';
+
       unitDiv.innerHTML = `
         <strong>${unit.name}</strong> ${'★'.repeat(unit.starLevel)}<br>
-        <small>${unit.role} | HP: ${Math.floor(unit.hp)}/${Math.floor(unit.maxHp)}</small>
+        <small>${unit.role}</small><br>
+        <small style="color: ${hpColor}">HP: ${Math.floor(unit.hp)}/${Math.floor(unit.maxHp)} (${hpPercent}%)</small>
       `;
+      unitDiv.addEventListener('click', () => this.showUnitDetails(unit));
       teamContainer.appendChild(unitDiv);
     });
 
