@@ -1,8 +1,7 @@
-// Combat engine
+// Simplified Combat engine
 class CombatEngine {
-  constructor(board, timeMarksSystem) {
+  constructor(board) {
     this.board = board;
-    this.timeMarksSystem = timeMarksSystem;
     this.isRunning = false;
     this.timeElapsed = 0;
     this.maxDuration = GAME_CONSTANTS.COMBAT.MAX_DURATION;
@@ -13,7 +12,6 @@ class CombatEngine {
     this.isRunning = true;
     this.timeElapsed = 0;
     this.winner = null;
-    this.timeMarksSystem.reset();
   }
 
   stop() {
@@ -34,7 +32,7 @@ class CombatEngine {
     // Update all units
     const allUnits = this.board.getAllUnits();
     allUnits.forEach(unit => {
-      unit.update(deltaTime, allUnits, this.timeMarksSystem);
+      unit.update(deltaTime, allUnits);
     });
 
     // Check for victory conditions

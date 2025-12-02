@@ -3,73 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TechFights - Grid Auto Battler</title>
+    <title>TechFights - Wave Survival</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="game-container">
-        <div id="header">
-            <h1>TechFights</h1>
-            <div id="game-info">
-                <span id="round-display">Round: 1</span>
-                <span id="gold-display">Gold: 0</span>
-                <span id="hp-display">HP: 100</span>
-                <span id="phase-display">Phase: Prep</span>
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay-screen">
+            <div class="screen-content">
+                <h1>🎮 TechFights</h1>
+                <h2>Wave Survival Challenge</h2>
+                <p>Build your team, survive 15 waves, defeat the boss!</p>
+                <ul class="game-rules">
+                    <li>Start with 2 random champions</li>
+                    <li>Win battles to earn rewards</li>
+                    <li>Upgrade champions or add new ones</li>
+                    <li>Reach Wave 15 and defeat the BOSS to win!</li>
+                </ul>
+                <button id="start-btn" class="big-button">Start Run</button>
             </div>
         </div>
 
-        <div id="main-area">
-            <!-- Game Board -->
-            <div id="board-container">
-                <canvas id="game-board" width="900" height="600"></canvas>
+        <!-- Main Game UI -->
+        <div id="game-ui" style="display: none;">
+            <div id="header">
+                <h1>TechFights</h1>
+                <div id="game-info">
+                    <span id="wave-display">Wave: 1/15</span>
+                    <span id="hp-display">HP: 100</span>
+                </div>
+                <div id="progress-bar">
+                    <div id="progress-fill"></div>
+                </div>
             </div>
 
-            <!-- Control Panel -->
-            <div id="control-panel">
-                <div id="traits-display">
-                    <h3>Active Traits</h3>
-                    <div id="active-traits"></div>
+            <div id="main-area">
+                <!-- Game Board -->
+                <div id="board-container">
+                    <canvas id="game-board" width="900" height="600"></canvas>
                 </div>
 
-                <div id="controls">
-                    <button id="start-combat-btn">Start Combat</button>
-                    <button id="reroll-shop-btn">Reroll Shop (2g)</button>
-                    <button id="level-up-btn">Level Up</button>
+                <!-- Team Display Panel -->
+                <div id="side-panel">
+                    <div id="team-display">
+                        <h3>Your Team:</h3>
+                    </div>
+
+                    <div id="controls">
+                        <button id="start-wave-btn" class="big-button">Start Wave</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Bench Area -->
-        <div id="bench-area">
-            <h3>Bench</h3>
-            <div id="bench-slots"></div>
+        <!-- Rewards Screen -->
+        <div id="rewards-panel" class="overlay-screen" style="display: none;">
+            <div class="screen-content">
+                <h2>🎉 Wave Complete!</h2>
+                <p>Choose your reward:</p>
+                <div id="reward-options" class="reward-grid"></div>
+            </div>
         </div>
 
-        <!-- Shop Area -->
-        <div id="shop-area">
-            <h3>Shop</h3>
-            <div id="shop-slots"></div>
+        <!-- Victory Screen -->
+        <div id="victory-screen" class="overlay-screen" style="display: none;">
+            <div class="screen-content">
+                <h1>🏆 VICTORY!</h1>
+                <h2>You defeated all 15 waves!</h2>
+                <p>You have mastered TechFights!</p>
+                <button id="play-again-btn" class="big-button">Play Again</button>
+            </div>
+        </div>
+
+        <!-- Defeat Screen -->
+        <div id="defeat-screen" class="overlay-screen" style="display: none;">
+            <div class="screen-content">
+                <h1>💀 DEFEAT</h1>
+                <h2>Your team has fallen...</h2>
+                <p>Better luck next time!</p>
+                <button id="restart-btn" class="big-button">Try Again</button>
+            </div>
         </div>
 
         <!-- Unit Details Panel -->
         <div id="unit-details" style="display: none;">
             <h3 id="unit-name"></h3>
-            <p id="unit-title"></p>
+            <p id="unit-role"></p>
             <div id="unit-stats"></div>
-            <div id="unit-abilities"></div>
+            <div id="unit-ability"></div>
         </div>
     </div>
 
+    <!-- Scripts (remove unused ones) -->
     <script src="data/champions.js"></script>
-    <script src="data/traits.js"></script>
     <script src="engine/constants.js"></script>
     <script src="engine/utils.js"></script>
     <script src="engine/unit.js"></script>
     <script src="engine/board.js"></script>
     <script src="engine/combat.js"></script>
-    <script src="engine/timemarks.js"></script>
-    <script src="engine/traits-engine.js"></script>
-    <script src="engine/shop.js"></script>
     <script src="engine/renderer.js"></script>
     <script src="game.js"></script>
 </body>

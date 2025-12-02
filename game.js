@@ -1,56 +1,75 @@
-// Main game controller
+// Main game controller - Wave-based Roguelike
 class TechFightsGame {
   constructor() {
     this.canvas = document.getElementById('game-board');
     this.renderer = new Renderer(this.canvas);
-
     this.board = new Board();
-    this.timeMarksSystem = new TimeMarksSystem();
-    this.combatEngine = new CombatEngine(this.board, this.timeMarksSystem);
-    this.traitsEngine = new TraitsEngine();
-    this.shop = new Shop();
+    this.combatEngine = new CombatEngine(this.board);
 
-    this.gameState = 'prep'; // 'prep' or 'combat'
-    this.round = 1;
-    this.playerHP = GAME_CONSTANTS.ECONOMY.STARTING_HP;
+    // Game state
+    this.gameState = 'start'; // 'start', 'combat', 'rewards', 'victory', 'defeat'
+    this.currentWave = 1;
+    this.maxWaves = 15;
+    this.playerHP = 100;
 
-    // Player team (units on board)
+    // Player team
     this.playerTeam = [];
 
     // Animation loop
     this.lastTime = 0;
     this.running = false;
 
-    // UI elements
     this.initUI();
-
-    // Mouse interaction
-    this.selectedUnit = null;
-    this.draggedUnit = null;
     this.initMouseEvents();
+    this.initializeGame();
+  }
+
+  initializeGame() {
+    // Start with 2 random champions at star level 1
+    const champ1 = this.getRandomChampion();
+    const champ2 = this.getRandomChampion();
+
+    this.playerTeam.push(new Unit(champ1, 1, 'player'));
+    this.playerTeam.push(new Unit(champ2, 1, 'player'));
+
+    this.updateUI();
+    this.showStartScreen();
+  }
+
+  showStartScreen() {
+    this.gameState = 'start';
+    document.getElementById('start-screen').style.display = 'flex';
+    document.getElementById('game-ui').style.display = 'none';
+  }
+
+  startRun() {
+    this.gameState = 'prep';
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('game-ui').style.display = 'flex';
+    this.updateUI();
+  }
+
+  getRandomChampion() {
+    const championId = CHAMPION_POOL[Math.floor(Math.random() * CHAMPION_POOL.length)];
+    return CHAMPIONS_DATA[championId];
   }
 
   initUI() {
-    // Buttons
-    document.getElementById('start-combat-btn').addEventListener('click', () => {
+    document.getElementById('start-btn').addEventListener('click', () => {
+      this.startRun();
+    });
+
+    document.getElementById('start-wave-btn').addEventListener('click', () => {
       this.startCombat();
     });
 
-    document.getElementById('reroll-shop-btn').addEventListener('click', () => {
-      this.shop.rollShop();
-      this.updateShopDisplay();
+    document.getElementById('restart-btn').addEventListener('click', () => {
+      location.reload();
     });
 
-    document.getElementById('level-up-btn').addEventListener('click', () => {
-      this.shop.levelUp();
-      this.updateUI();
+    document.getElementById('play-again-btn').addEventListener('click', () => {
+      location.reload();
     });
-
-    // Initialize shop
-    this.shop.generateShop();
-    this.updateShopDisplay();
-    this.updateBenchDisplay();
-    this.updateUI();
   }
 
   initMouseEvents() {
@@ -62,9 +81,6 @@ class TechFightsGame {
       };
 
       const gridPos = pixelToGrid(pixelPos);
-      console.log('Clicked grid position:', gridPos);
-
-      // Check if clicking a unit
       const unit = this.board.getUnitAt(gridPos.col, gridPos.row);
       if (unit) {
         this.showUnitDetails(unit);
@@ -84,64 +100,92 @@ class TechFightsGame {
     const deltaTime = Math.min((currentTime - this.lastTime) / 1000, 0.1);
     this.lastTime = currentTime;
 
-    // Update game state
     if (this.gameState === 'combat') {
       this.combatEngine.update(deltaTime);
 
-      // Check if combat ended
       if (!this.combatEngine.isRunning) {
         this.endCombat();
       }
     }
 
-    // Render
-    this.renderer.render(this.board, this.timeMarksSystem);
+    this.renderer.render(this.board, this.gameState);
 
     if (this.gameState === 'combat') {
       const combatState = this.combatEngine.getCombatState();
-      this.renderer.drawCombatInfo(combatState);
+      this.renderer.drawCombatInfo(combatState, this.currentWave, this.maxWaves);
     }
 
     requestAnimationFrame((time) => this.gameLoop(time));
   }
 
   startCombat() {
-    if (this.gameState === 'combat') return;
+    if (this.gameState !== 'prep') return;
 
-    // Get player units from bench/board
-    this.playerTeam = this.shop.bench.slice(0, this.shop.playerLevel);
+    // Position units automatically based on role
+    this.positionTeamByRole(this.playerTeam, 'player');
 
-    if (this.playerTeam.length === 0) {
-      alert('Place some units on your team first!');
-      return;
-    }
-
-    // Generate enemy team (simplified - mirror player team)
-    const enemyTeam = this.generateEnemyTeam();
+    // Generate enemy team for this wave
+    const enemyTeam = this.generateEnemyWave(this.currentWave);
+    this.positionTeamByRole(enemyTeam, 'enemy');
 
     // Setup battle
     this.board.setupBattle(this.playerTeam, enemyTeam);
-
-    // Calculate and apply traits
-    this.traitsEngine.calculateActiveTraits(this.board.playerUnits);
-    this.traitsEngine.applyTraitBonuses(this.board.playerUnits);
 
     // Start combat
     this.combatEngine.start();
     this.gameState = 'combat';
 
+    document.getElementById('start-wave-btn').style.display = 'none';
     this.updateUI();
   }
 
-  generateEnemyTeam() {
-    // Simple AI: random champions of similar strength
-    const enemyTeam = [];
-    const teamSize = Math.min(this.shop.playerLevel, this.playerTeam.length);
+  positionTeamByRole(team, side) {
+    // Sort by role: Tanks front, DPS/Control middle, Support back
+    const roleOrder = { 'Tank': 0, 'DPS': 1, 'Control': 2, 'Support': 3 };
+    team.sort((a, b) => roleOrder[a.role] - roleOrder[b.role]);
 
-    for (let i = 0; i < teamSize; i++) {
-      const randomChampion = getRandomElement(Object.values(CHAMPIONS_DATA));
-      const unit = new Unit(randomChampion, 1, 'enemy');
-      enemyTeam.push(unit);
+    // Assign grid positions based on side
+    const { COLS, PLAYER_ROWS, ENEMY_ROWS } = GAME_CONSTANTS.BOARD;
+    const rows = side === 'player' ? PLAYER_ROWS : ENEMY_ROWS;
+
+    team.forEach((unit, index) => {
+      const col = index % COLS;
+      const row = rows[Math.floor(index / COLS)];
+      unit.setPosition(col, row);
+    });
+  }
+
+  generateEnemyWave(waveNumber) {
+    const enemyTeam = [];
+
+    // Scale difficulty with wave number
+    const enemyCount = Math.min(2 + Math.floor(waveNumber / 3), 6);
+    const isBoss = waveNumber === this.maxWaves;
+
+    if (isBoss) {
+      // Boss wave: one super strong unit
+      const bossData = this.getRandomChampion();
+      const boss = new Unit(bossData, 3, 'enemy');
+      boss.maxHp *= 3;
+      boss.hp = boss.maxHp;
+      boss.attackDamage *= 2;
+      boss.name = `BOSS ${boss.name}`;
+      enemyTeam.push(boss);
+    } else {
+      // Normal wave: multiple units
+      for (let i = 0; i < enemyCount; i++) {
+        const championData = this.getRandomChampion();
+        const starLevel = Math.min(1 + Math.floor(waveNumber / 5), 3);
+        const enemy = new Unit(championData, starLevel, 'enemy');
+
+        // Scale stats with wave number
+        const waveMultiplier = 1 + (waveNumber - 1) * 0.1;
+        enemy.maxHp *= waveMultiplier;
+        enemy.hp = enemy.maxHp;
+        enemy.attackDamage *= waveMultiplier;
+
+        enemyTeam.push(enemy);
+      }
     }
 
     return enemyTeam;
@@ -151,184 +195,161 @@ class TechFightsGame {
     const winner = this.combatEngine.winner;
 
     if (winner === 'player') {
-      console.log('Victory!');
-    } else if (winner === 'enemy') {
-      console.log('Defeat!');
-      this.playerHP -= 10;
+      // Victory
+      if (this.currentWave >= this.maxWaves) {
+        this.showVictoryScreen();
+      } else {
+        this.currentWave++;
+        this.showRewardsScreen();
+      }
     } else {
-      console.log('Draw!');
+      // Defeat
+      this.playerHP -= 20;
+      if (this.playerHP <= 0) {
+        this.showDefeatScreen();
+      } else {
+        // Continue with damaged team
+        this.currentWave++;
+        this.showRewardsScreen();
+      }
+    }
+  }
+
+  showRewardsScreen() {
+    this.gameState = 'rewards';
+    const rewardsPanel = document.getElementById('rewards-panel');
+    rewardsPanel.style.display = 'flex';
+
+    // Generate 3 reward options
+    const options = [];
+
+    // Option 1: New champion
+    const newChamp = this.getRandomChampion();
+    options.push({
+      type: 'champion',
+      data: newChamp,
+      label: `Add ${newChamp.name}`,
+      description: `${newChamp.role} - ${newChamp.ability.description}`
+    });
+
+    // Option 2: Upgrade existing champion
+    if (this.playerTeam.length > 0) {
+      const randomUnit = this.playerTeam[Math.floor(Math.random() * this.playerTeam.length)];
+      options.push({
+        type: 'upgrade',
+        data: randomUnit,
+        label: `Upgrade ${randomUnit.name}`,
+        description: `Increase to ${randomUnit.starLevel + 1}★ (+HP, +Damage, +Ability)`
+      });
+    } else {
+      options.push({
+        type: 'heal',
+        data: 30,
+        label: 'Heal 30 HP',
+        description: 'Restore health'
+      });
     }
 
-    // Return to prep phase
+    // Option 3: Remove a unit and heal
+    options.push({
+      type: 'heal',
+      data: 50,
+      label: 'Heal 50 HP',
+      description: 'Restore a large amount of health'
+    });
+
+    // Display options
+    const optionsContainer = document.getElementById('reward-options');
+    optionsContainer.innerHTML = '';
+
+    options.forEach((option, index) => {
+      const btn = document.createElement('button');
+      btn.className = 'reward-option';
+      btn.innerHTML = `
+        <h3>${option.label}</h3>
+        <p>${option.description}</p>
+      `;
+      btn.addEventListener('click', () => this.selectReward(option));
+      optionsContainer.appendChild(btn);
+    });
+  }
+
+  selectReward(reward) {
+    if (reward.type === 'champion') {
+      const newUnit = new Unit(reward.data, 1, 'player');
+      this.playerTeam.push(newUnit);
+    } else if (reward.type === 'upgrade') {
+      const unit = reward.data;
+      if (unit.starLevel < 3) {
+        unit.starLevel++;
+        unit.updateStarLevel();
+      }
+    } else if (reward.type === 'heal') {
+      this.playerHP = Math.min(this.playerHP + reward.data, 100);
+    }
+
+    document.getElementById('rewards-panel').style.display = 'none';
     this.gameState = 'prep';
-    this.round++;
-
-    // Give gold and interest
-    this.shop.startOfRound();
-
-    // Re-roll shop
-    this.shop.generateShop();
-
-    // Reset board
     this.board.reset();
-
+    document.getElementById('start-wave-btn').style.display = 'block';
     this.updateUI();
-    this.updateShopDisplay();
+  }
+
+  showVictoryScreen() {
+    this.gameState = 'victory';
+    document.getElementById('victory-screen').style.display = 'flex';
+  }
+
+  showDefeatScreen() {
+    this.gameState = 'defeat';
+    document.getElementById('defeat-screen').style.display = 'flex';
   }
 
   updateUI() {
-    document.getElementById('round-display').textContent = `Round: ${this.round}`;
-    document.getElementById('gold-display').textContent = `Gold: ${this.shop.gold}`;
+    document.getElementById('wave-display').textContent = `Wave: ${this.currentWave}/${this.maxWaves}`;
     document.getElementById('hp-display').textContent = `HP: ${this.playerHP}`;
-    document.getElementById('phase-display').textContent = `Phase: ${this.gameState}`;
 
-    // Update traits display
-    const activeTraits = this.traitsEngine.getActiveTraitsDisplay();
-    const traitsContainer = document.getElementById('active-traits');
-    traitsContainer.innerHTML = '';
+    // Update team display
+    const teamContainer = document.getElementById('team-display');
+    teamContainer.innerHTML = '<h3>Your Team:</h3>';
 
-    activeTraits.forEach(trait => {
-      const div = document.createElement('div');
-      div.className = 'trait-item active';
-      div.innerHTML = `<strong>${trait.name} (${trait.count})</strong><br>${trait.description}`;
-      traitsContainer.appendChild(div);
+    this.playerTeam.forEach(unit => {
+      const unitDiv = document.createElement('div');
+      unitDiv.className = 'team-unit';
+      unitDiv.innerHTML = `
+        <strong>${unit.name}</strong> ${'★'.repeat(unit.starLevel)}<br>
+        <small>${unit.role} | HP: ${Math.floor(unit.hp)}/${Math.floor(unit.maxHp)}</small>
+      `;
+      teamContainer.appendChild(unitDiv);
     });
 
-    // Update button states
-    const startBtn = document.getElementById('start-combat-btn');
-    const rerollBtn = document.getElementById('reroll-shop-btn');
-    const levelBtn = document.getElementById('level-up-btn');
-
-    if (this.gameState === 'combat') {
-      startBtn.disabled = true;
-      rerollBtn.disabled = true;
-      levelBtn.disabled = true;
-    } else {
-      startBtn.disabled = false;
-      rerollBtn.disabled = this.shop.gold < GAME_CONSTANTS.ECONOMY.REROLL_COST;
-
-      const levelCost = GAME_CONSTANTS.ECONOMY.LEVEL_UP_COSTS[this.shop.playerLevel - 1];
-      levelBtn.disabled = this.shop.playerLevel >= 9 || this.shop.gold < (levelCost || 999);
-      levelBtn.textContent = `Level Up (${levelCost || '-'}g)`;
-    }
-  }
-
-  updateShopDisplay() {
-    const shopContainer = document.getElementById('shop-slots');
-    shopContainer.innerHTML = '';
-
-    this.shop.currentShop.forEach((item, index) => {
-      if (!item) {
-        const emptyDiv = document.createElement('div');
-        emptyDiv.className = 'empty-slot';
-        emptyDiv.textContent = 'Sold';
-        shopContainer.appendChild(emptyDiv);
-        return;
-      }
-
-      const card = this.createChampionCard(item.championData, () => {
-        if (this.shop.buyChampion(index)) {
-          this.updateShopDisplay();
-          this.updateBenchDisplay();
-          this.updateUI();
-        }
-      });
-
-      shopContainer.appendChild(card);
-    });
-  }
-
-  updateBenchDisplay() {
-    const benchContainer = document.getElementById('bench-slots');
-    benchContainer.innerHTML = '';
-
-    this.shop.bench.forEach((unit) => {
-      const card = this.createChampionCard(unit.championData, null, unit);
-
-      // Right-click to sell
-      card.addEventListener('contextmenu', (e) => {
-        e.preventDefault();
-        if (this.shop.sellChampion(unit)) {
-          this.updateBenchDisplay();
-          this.updateUI();
-        }
-      });
-
-      benchContainer.appendChild(card);
-    });
-
-    // Fill empty slots
-    for (let i = this.shop.bench.length; i < this.shop.maxBenchSize; i++) {
-      const emptyDiv = document.createElement('div');
-      emptyDiv.className = 'empty-slot';
-      benchContainer.appendChild(emptyDiv);
-    }
-  }
-
-  createChampionCard(championData, onClick = null, unit = null) {
-    const card = document.createElement('div');
-    card.className = 'champion-card';
-
-    const costDiv = document.createElement('div');
-    costDiv.className = 'cost';
-    costDiv.textContent = championData.tier;
-    card.appendChild(costDiv);
-
-    const nameDiv = document.createElement('div');
-    nameDiv.className = 'name';
-    nameDiv.textContent = championData.name;
-    card.appendChild(nameDiv);
-
-    if (unit) {
-      const starsDiv = document.createElement('div');
-      starsDiv.className = 'stars';
-      starsDiv.textContent = unit.getStarString();
-      card.appendChild(starsDiv);
-    }
-
-    const traitsDiv = document.createElement('div');
-    traitsDiv.className = 'traits';
-    championData.traits.forEach(traitId => {
-      const traitTag = document.createElement('div');
-      traitTag.className = 'trait-tag';
-      traitTag.textContent = traitId;
-      traitsDiv.appendChild(traitTag);
-    });
-    card.appendChild(traitsDiv);
-
-    if (onClick) {
-      card.addEventListener('click', onClick);
-    }
-
-    return card;
+    // Update progress bar
+    const progress = (this.currentWave - 1) / this.maxWaves * 100;
+    document.getElementById('progress-fill').style.width = `${progress}%`;
   }
 
   showUnitDetails(unit) {
     const detailsPanel = document.getElementById('unit-details');
     detailsPanel.style.display = 'block';
 
+    const championData = unit.championData;
     document.getElementById('unit-name').textContent = unit.name;
-    document.getElementById('unit-title').textContent = unit.title;
+    document.getElementById('unit-role').textContent = unit.role;
 
     const statsDiv = document.getElementById('unit-stats');
     statsDiv.innerHTML = `
       <div><strong>HP:</strong> ${Math.floor(unit.hp)} / ${Math.floor(unit.maxHp)}</div>
-      <div><strong>Attack Damage:</strong> ${Math.floor(unit.attackDamage)}</div>
-      <div><strong>Attack Speed:</strong> ${unit.attackSpeed.toFixed(2)}</div>
+      <div><strong>Attack:</strong> ${Math.floor(unit.attackDamage)}</div>
       <div><strong>Armor:</strong> ${Math.floor(unit.armor)}</div>
-      <div><strong>Magic Resist:</strong> ${Math.floor(unit.magicResist)}</div>
-      <div><strong>Range:</strong> ${unit.range}</div>
-      <div><strong>Star Level:</strong> ${unit.getStarString()}</div>
+      <div><strong>Stars:</strong> ${'★'.repeat(unit.starLevel)}</div>
     `;
 
-    const abilitiesDiv = document.getElementById('unit-abilities');
-    abilitiesDiv.innerHTML = `
-      <div><strong>Echo Rhythm:</strong> ${unit.championData.echoRhythm.description}</div>
-      <div><strong>Mark Detonation:</strong> ${unit.championData.timeMarkDetonation.description}</div>
-      <div><strong>Fractured Advance:</strong> ${unit.championData.fracturedAdvance.description}</div>
+    const abilityDiv = document.getElementById('unit-ability');
+    abilityDiv.innerHTML = `
+      <strong>${championData.ability.name}</strong><br>
+      ${championData.ability.description}
     `;
 
-    // Close on click outside
     setTimeout(() => {
       const closeHandler = (e) => {
         if (!detailsPanel.contains(e.target)) {

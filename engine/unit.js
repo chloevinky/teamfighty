@@ -1,14 +1,13 @@
-// Unit class representing a champion on the board
+// Simplified Unit class for wave-based TechFights
 class Unit {
   constructor(championData, starLevel = 1, team = 'player') {
     this.id = generateUID();
     this.championId = championData.id;
     this.name = championData.name;
-    this.title = championData.title;
-    this.tier = championData.tier;
-    this.team = team; // 'player' or 'enemy'
+    this.role = championData.role;
+    this.team = team;
     this.starLevel = starLevel;
-    this.traits = championData.traits;
+    this.championData = championData;
 
     // Position
     this.gridPos = { col: 0, row: 0 };
@@ -23,38 +22,29 @@ class Unit {
     this.attackDamage = base.attackDamage * multiplier.ad;
     this.attackSpeed = base.attackSpeed;
     this.armor = base.armor;
-    this.magicResist = base.magicResist;
-    this.range = championData.range;
+    this.range = base.range;
     this.moveSpeed = base.moveSpeed;
 
     // Mana system
     this.mana = 0;
     this.manaMax = base.manaMax;
-    this.manaOnAttack = base.manaOnAttack;
-    this.manaOnHitTaken = base.manaOnHitTaken;
+    this.manaPerAttack = base.manaPerAttack;
 
     // Combat state
     this.target = null;
     this.attackTimer = 0;
-    this.attackCount = 0; // For Echo Rhythm
     this.isDead = false;
     this.isStunned = false;
     this.isSilenced = false;
-
-    // Ability data
-    this.championData = championData;
-    this.abilityState = null; // For Fractured Advance state
+    this.isTaunted = false;
+    this.tauntTarget = null;
 
     // Buffs/Debuffs
     this.buffs = [];
     this.debuffs = [];
     this.shield = 0;
-
-    // Cached damage (for Cache champion)
-    this.cachedDamage = {};
-
-    // Visual effects
-    this.animations = [];
+    this.stunTimer = 0;
+    this.silenceTimer = 0;
   }
 
   setPosition(col, row) {
@@ -62,26 +52,46 @@ class Unit {
     this.pixelPos = gridToPixel({ col, row });
   }
 
-  update(deltaTime, allUnits, timeMarksSystem) {
+  updateStarLevel() {
+    const multiplier = GAME_CONSTANTS.STAR_MULTIPLIERS[this.starLevel];
+    const base = this.championData.baseStats;
+
+    const hpPercent = this.hp / this.maxHp;
+    this.maxHp = base.hp * multiplier.hp;
+    this.hp = this.maxHp * hpPercent; // Maintain HP percentage
+    this.attackDamage = base.attackDamage * multiplier.ad;
+  }
+
+  update(deltaTime, allUnits) {
     if (this.isDead) return;
 
-    // Update buffs/debuffs
+    // Update effects
     this.updateEffects(deltaTime);
 
     // If stunned, skip actions
-    if (this.isStunned) return;
+    if (this.isStunned) {
+      this.stunTimer -= deltaTime;
+      if (this.stunTimer <= 0) {
+        this.isStunned = false;
+      }
+      return;
+    }
 
-    // Update ability state (for Fractured Advance)
-    if (this.abilityState) {
-      this.updateAbilityState(deltaTime, allUnits, timeMarksSystem);
-      return; // During ability, unit might not attack normally
+    if (this.isSilenced) {
+      this.silenceTimer -= deltaTime;
+      if (this.silenceTimer <= 0) {
+        this.isSilenced = false;
+      }
     }
 
     // Find target
     const enemies = allUnits.filter(u => u.team !== this.team && !u.isDead);
     if (enemies.length === 0) return;
 
-    if (!this.target || this.target.isDead) {
+    // Taunt override
+    if (this.isTaunted && this.tauntTarget && !this.tauntTarget.isDead) {
+      this.target = this.tauntTarget;
+    } else if (!this.target || this.target.isDead) {
       this.target = findNearestUnit(this, enemies);
     }
 
@@ -94,7 +104,7 @@ class Unit {
       this.attackTimer += deltaTime * this.getEffectiveAttackSpeed();
 
       if (this.attackTimer >= 1.0) {
-        this.performAttack(this.target, allUnits, timeMarksSystem);
+        this.performAttack(this.target, allUnits);
         this.attackTimer = 0;
       }
     } else {
@@ -104,14 +114,13 @@ class Unit {
 
     // Check for ability cast
     if (this.mana >= this.manaMax && !this.isSilenced) {
-      this.castAbility(allUnits, timeMarksSystem);
+      this.castAbility(allUnits);
     }
   }
 
   getEffectiveAttackSpeed() {
     let as = this.attackSpeed;
 
-    // Apply buffs/debuffs
     this.buffs.forEach(buff => {
       if (buff.type === 'attackSpeed') {
         as *= (1 + buff.value);
@@ -119,7 +128,7 @@ class Unit {
     });
 
     this.debuffs.forEach(debuff => {
-      if (debuff.type === 'attackSpeedSlow') {
+      if (debuff.type === 'slow' || debuff.type === 'attackSpeedSlow') {
         as *= (1 - debuff.value);
       }
     });
@@ -127,73 +136,13 @@ class Unit {
     return as;
   }
 
-  performAttack(target, allUnits, timeMarksSystem) {
-    this.attackCount++;
-    const isEchoAttack = (this.attackCount % GAME_CONSTANTS.ECHO.ATTACK_COUNT === 0);
-
-    let damage = this.attackDamage;
-
-    // Echo Rhythm - 3rd attack
-    if (isEchoAttack) {
-      const echo = this.championData.echoRhythm;
-
-      if (echo.damageMultiplier) {
-        damage *= echo.damageMultiplier;
-      }
-
-      // Apply echo effects
-      this.applyEchoEffects(target, echo, allUnits, timeMarksSystem);
-
-      // Apply Time Mark
-      let marks = 1;
-
-      // Chrono trait: double marks on echo
-      if (this.hasActiveTrait('Chrono', 2)) {
-        marks = 2;
-      }
-
-      for (let i = 0; i < marks; i++) {
-        timeMarksSystem.applyMark(this, target);
-      }
-    }
-
-    // Deal damage
-    const finalDamage = calculateDamage(damage, target.armor, target.magicResist, 'physical');
-    target.takeDamage(finalDamage, this, 'physical');
+  performAttack(target, allUnits) {
+    const damage = this.attackDamage;
+    const finalDamage = calculateDamage(damage, target.armor, 0, 'physical');
+    target.takeDamage(finalDamage, this);
 
     // Gain mana
-    this.gainMana(this.manaOnAttack);
-  }
-
-  applyEchoEffects(target, echo, allUnits, timeMarksSystem) {
-    // Champion-specific echo effects
-    if (echo.shieldSelf) {
-      const shieldAmount = echo.shieldSelf.starValues[this.starLevel - 1];
-      this.addShield(shieldAmount, echo.shieldSelf.duration);
-    }
-
-    if (echo.attackSpeedBuffSelf) {
-      const asBonus = echo.attackSpeedBuffSelf.percentValues[this.starLevel - 1];
-      this.addBuff('attackSpeed', asBonus, echo.attackSpeedBuffSelf.duration);
-    }
-
-    if (echo.bonusDamage) {
-      const bonus = echo.bonusDamage.starValues[this.starLevel - 1];
-      const bonusDmg = calculateDamage(bonus, target.armor, target.magicResist, echo.bonusDamage.type);
-      target.takeDamage(bonusDmg, this, echo.bonusDamage.type);
-    }
-
-    if (echo.slow) {
-      target.addDebuff('slow', echo.slow.percent, echo.slow.duration);
-    }
-
-    if (echo.cachedDamagePercent) {
-      // Cache champion specific
-      if (!this.cachedDamage[target.id]) {
-        this.cachedDamage[target.id] = 0;
-      }
-      this.cachedDamage[target.id] += this.attackDamage * echo.cachedDamagePercent;
-    }
+    this.gainMana(this.manaPerAttack);
   }
 
   moveToward(target, allUnits, deltaTime) {
@@ -208,94 +157,151 @@ class Unit {
     }
   }
 
-  castAbility(allUnits, timeMarksSystem) {
-    // Simplified Fractured Advance implementation
+  castAbility(allUnits) {
     this.mana = 0;
 
-    const ability = this.championData.fracturedAdvance;
-
-    // Store anchor position
-    const anchorPos = { ...this.gridPos };
-
-    // Determine target position (simplified)
+    const ability = this.championData.ability;
     const enemies = allUnits.filter(u => u.team !== this.team && !u.isDead);
-    if (enemies.length === 0) return;
+    const allies = allUnits.filter(u => u.team === this.team && !u.isDead);
 
-    const targetEnemy = enemies[0]; // Simplified - just pick first enemy
-    const targetPos = { ...targetEnemy.gridPos };
+    if (enemies.length === 0 && allies.length === 0) return;
 
-    // Create ability state
-    this.abilityState = {
-      anchorPos,
-      targetPos,
-      duration: ability.duration,
-      timeElapsed: 0,
-      affectedEnemies: new Set(),
-      hasLanded: false
-    };
-
-    // Immediately move to target position
-    this.setPosition(targetPos.col, targetPos.row);
-    this.abilityState.hasLanded = true;
-
-    // Apply landing effects
-    this.applyAbilityLandingEffects(allUnits, timeMarksSystem);
-  }
-
-  applyAbilityLandingEffects(allUnits, timeMarksSystem) {
-    const ability = this.championData.fracturedAdvance;
-    const enemies = allUnits.filter(u => u.team !== this.team && !u.isDead);
-
-    // Get enemies in radius
-    const nearbyEnemies = getUnitsInRadius(this.gridPos, enemies, 1);
-
-    nearbyEnemies.forEach(enemy => {
-      // Deal damage
-      let damage = 0;
-      if (ability.dashDamage) {
-        damage = ability.dashDamage.starValues[this.starLevel - 1];
-      } else if (ability.slamDamage) {
-        damage = ability.slamDamage.starValues[this.starLevel - 1];
-      } else if (ability.spinDamage) {
-        damage = ability.spinDamage.starValues[this.starLevel - 1];
-      }
-
-      if (damage > 0) {
-        const finalDmg = calculateDamage(damage, enemy.armor, enemy.magicResist, 'magic');
-        enemy.takeDamage(finalDmg, this, 'magic');
-      }
-
-      // Apply marks
-      const marks = ability.marksAppliedOnDash || ability.marksAppliedOnSlam || ability.marksAppliedPerEnemy || 1;
-      for (let i = 0; i < marks; i++) {
-        timeMarksSystem.applyMark(this, enemy);
-      }
-
-      this.abilityState.affectedEnemies.add(enemy.id);
-    });
-  }
-
-  updateAbilityState(deltaTime, allUnits, timeMarksSystem) {
-    this.abilityState.timeElapsed += deltaTime;
-
-    // Check if duration is complete
-    if (this.abilityState.timeElapsed >= this.abilityState.duration) {
-      // Rewind to anchor
-      this.setPosition(this.abilityState.anchorPos.col, this.abilityState.anchorPos.row);
-
-      // Detonate marks on affected enemies
-      this.abilityState.affectedEnemies.forEach(enemyId => {
-        const enemy = allUnits.find(u => u.id === enemyId);
-        if (enemy && !enemy.isDead) {
-          timeMarksSystem.detonateMarks(this, enemy);
-        }
-      });
-
-      this.abilityState = null;
+    // Execute ability based on effect type
+    switch (ability.effect) {
+      case 'shield_and_taunt':
+        this.abilityShieldAndTaunt(enemies);
+        break;
+      case 'team_shield':
+        this.abilityTeamShield(allies);
+        break;
+      case 'single_target_burst':
+        this.abilitySingleTargetBurst(enemies);
+        break;
+      case 'multi_strike':
+        this.abilityMultiStrike(enemies);
+        break;
+      case 'aoe_damage_slow':
+        this.abilityAoeDamageSlow(enemies);
+        break;
+      case 'team_heal':
+        this.abilityTeamHeal(allies);
+        break;
+      case 'team_attack_speed':
+        this.abilityTeamAttackSpeed(allies);
+        break;
+      case 'aoe_stun':
+        this.abilityAoeStun(enemies);
+        break;
+      case 'cone_damage_silence':
+        this.abilityConeDamageSilence(enemies);
+        break;
     }
   }
 
-  takeDamage(amount, source, damageType = 'physical') {
+  // Ability implementations
+  abilityShieldAndTaunt(enemies) {
+    const ability = this.championData.ability;
+    const shieldAmount = ability.shieldAmount[this.starLevel - 1];
+    this.addShield(shieldAmount);
+
+    // Taunt all enemies
+    enemies.forEach(enemy => {
+      enemy.isTaunted = true;
+      enemy.tauntTarget = this;
+      setTimeout(() => {
+        enemy.isTaunted = false;
+        enemy.tauntTarget = null;
+      }, ability.tauntDuration * 1000);
+    });
+  }
+
+  abilityTeamShield(allies) {
+    const ability = this.championData.ability;
+    const shieldAmount = ability.shieldAmount[this.starLevel - 1];
+    allies.forEach(ally => ally.addShield(shieldAmount));
+  }
+
+  abilitySingleTargetBurst(enemies) {
+    const ability = this.championData.ability;
+    const damage = ability.damage[this.starLevel - 1];
+
+    // Find highest HP enemy
+    let target = enemies[0];
+    enemies.forEach(enemy => {
+      if (enemy.hp > target.hp) target = enemy;
+    });
+
+    if (target) {
+      const finalDamage = calculateDamage(damage, target.armor, 0, 'magic');
+      target.takeDamage(finalDamage, this);
+    }
+  }
+
+  abilityMultiStrike(enemies) {
+    const ability = this.championData.ability;
+    const damagePerStrike = ability.damagePerStrike[this.starLevel - 1];
+    const target = findNearestUnit(this, enemies);
+
+    if (target) {
+      for (let i = 0; i < ability.strikes; i++) {
+        const finalDamage = calculateDamage(damagePerStrike, target.armor, 0, 'physical');
+        target.takeDamage(finalDamage, this);
+      }
+    }
+  }
+
+  abilityAoeDamageSlow(enemies) {
+    const ability = this.championData.ability;
+    const damage = ability.damage[this.starLevel - 1];
+
+    enemies.forEach(enemy => {
+      const finalDamage = calculateDamage(damage, enemy.armor, 0, 'magic');
+      enemy.takeDamage(finalDamage, this);
+      enemy.addDebuff('slow', ability.slowPercent, ability.slowDuration);
+    });
+  }
+
+  abilityTeamHeal(allies) {
+    const ability = this.championData.ability;
+    const healAmount = ability.healAmount[this.starLevel - 1];
+    allies.forEach(ally => ally.heal(healAmount));
+  }
+
+  abilityTeamAttackSpeed(allies) {
+    const ability = this.championData.ability;
+    allies.forEach(ally => {
+      ally.addBuff('attackSpeed', ability.bonusPercent, ability.duration);
+    });
+  }
+
+  abilityAoeStun(enemies) {
+    const ability = this.championData.ability;
+    const damage = ability.damage[this.starLevel - 1];
+
+    enemies.forEach(enemy => {
+      const finalDamage = calculateDamage(damage, enemy.armor, 0, 'magic');
+      enemy.takeDamage(finalDamage, this);
+      enemy.stun(ability.stunDuration);
+    });
+  }
+
+  abilityConeDamageSilence(enemies) {
+    const ability = this.championData.ability;
+    const damage = ability.damage[this.starLevel - 1];
+
+    // Get nearest enemies (up to targetsHit)
+    const nearest = enemies
+      .sort((a, b) => manhattanDistance(this.gridPos, a.gridPos) - manhattanDistance(this.gridPos, b.gridPos))
+      .slice(0, ability.targetsHit);
+
+    nearest.forEach(enemy => {
+      const finalDamage = calculateDamage(damage, enemy.armor, 0, 'magic');
+      enemy.takeDamage(finalDamage, this);
+      enemy.silence(ability.silenceDuration);
+    });
+  }
+
+  takeDamage(amount, source) {
     // Apply to shield first
     if (this.shield > 0) {
       if (this.shield >= amount) {
@@ -312,13 +318,11 @@ class Unit {
     if (this.hp <= 0) {
       this.hp = 0;
       this.die();
-    } else {
-      // Gain mana when hit
-      this.gainMana(this.manaOnHitTaken);
     }
   }
 
   heal(amount) {
+    if (this.isDead) return;
     this.hp = Math.min(this.hp + amount, this.maxHp);
   }
 
@@ -327,9 +331,8 @@ class Unit {
     this.mana = Math.min(this.mana + amount, this.manaMax);
   }
 
-  addShield(amount, duration) {
+  addShield(amount) {
     this.shield += amount;
-    // Shield could decay after duration (simplified here)
   }
 
   addBuff(type, value, duration) {
@@ -341,25 +344,15 @@ class Unit {
   }
 
   updateEffects(deltaTime) {
-    // Update buffs
     this.buffs = this.buffs.filter(buff => {
       buff.duration -= deltaTime;
       return buff.duration > 0;
     });
 
-    // Update debuffs
     this.debuffs = this.debuffs.filter(debuff => {
       debuff.duration -= deltaTime;
       return debuff.duration > 0;
     });
-
-    // Update stuns
-    if (this.isStunned) {
-      this.stunTimer -= deltaTime;
-      if (this.stunTimer <= 0) {
-        this.isStunned = false;
-      }
-    }
   }
 
   stun(duration) {
@@ -367,14 +360,14 @@ class Unit {
     this.stunTimer = duration;
   }
 
+  silence(duration) {
+    this.isSilenced = true;
+    this.silenceTimer = duration;
+  }
+
   die() {
     this.isDead = true;
     this.hp = 0;
-  }
-
-  hasActiveTrait(traitId, minCount) {
-    // This will be checked by the traits system
-    return false; // Placeholder
   }
 
   getStarString() {

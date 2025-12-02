@@ -1,4 +1,4 @@
-// Canvas renderer
+// Canvas renderer - Simplified for wave-based game
 class Renderer {
   constructor(canvas) {
     this.canvas = canvas;
@@ -12,10 +12,10 @@ class Renderer {
     this.ctx.fillRect(0, 0, this.width, this.height);
   }
 
-  render(board, timeMarksSystem) {
+  render(board, gameState) {
     this.clear();
     this.drawGrid(board);
-    this.drawUnits(board.getAllUnits(), timeMarksSystem);
+    this.drawUnits(board.getAllUnits());
   }
 
   drawGrid(board) {
@@ -46,14 +46,14 @@ class Renderer {
     }
   }
 
-  drawUnits(units, timeMarksSystem) {
+  drawUnits(units) {
     units.forEach(unit => {
       if (unit.isDead) return;
-      this.drawUnit(unit, timeMarksSystem);
+      this.drawUnit(unit);
     });
   }
 
-  drawUnit(unit, timeMarksSystem) {
+  drawUnit(unit) {
     const { x, y } = unit.pixelPos;
     const { RADIUS } = GAME_CONSTANTS.UNIT;
     const color = unit.team === 'player'
@@ -69,10 +69,18 @@ class Renderer {
     // Draw shield if present
     if (unit.shield > 0) {
       this.ctx.strokeStyle = GAME_CONSTANTS.COLORS.SHIELD;
-      this.ctx.lineWidth = 3;
+      this.ctx.lineWidth = 4;
       this.ctx.beginPath();
-      this.ctx.arc(x, y, RADIUS + 2, 0, Math.PI * 2);
+      this.ctx.arc(x, y, RADIUS + 3, 0, Math.PI * 2);
       this.ctx.stroke();
+    }
+
+    // Draw stun indicator
+    if (unit.isStunned) {
+      this.ctx.fillStyle = '#ffff00';
+      this.ctx.font = 'bold 20px Arial';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText('⚡', x, y - RADIUS - 15);
     }
 
     // Draw unit name
@@ -91,9 +99,6 @@ class Renderer {
 
     // Draw mana bar
     this.drawManaBar(unit);
-
-    // Draw Time Marks
-    this.drawTimeMarks(unit, timeMarksSystem);
   }
 
   drawHealthBar(unit) {
@@ -140,43 +145,15 @@ class Renderer {
     this.ctx.strokeRect(barX, barY, BAR_WIDTH, BAR_HEIGHT);
   }
 
-  drawTimeMarks(unit, timeMarksSystem) {
-    // Draw marks this unit has on enemies
-    const allMarks = timeMarksSystem.getAllMarksOnTarget(unit.id);
-
-    let markIndex = 0;
-    for (const sourceId in allMarks) {
-      const count = allMarks[sourceId];
-      if (count > 0) {
-        this.drawMarkIndicator(unit, markIndex, count);
-        markIndex++;
-      }
-    }
-  }
-
-  drawMarkIndicator(unit, index, count) {
-    const { x, y } = unit.pixelPos;
-    const radius = 8;
-    const offsetX = -30 + (index * 20);
-    const offsetY = -35;
-
-    // Draw circle
-    this.ctx.fillStyle = GAME_CONSTANTS.COLORS.MARK;
-    this.ctx.beginPath();
-    this.ctx.arc(x + offsetX, y + offsetY, radius, 0, Math.PI * 2);
-    this.ctx.fill();
-
-    // Draw count
+  drawCombatInfo(combatState, currentWave, maxWaves) {
     this.ctx.fillStyle = '#fff';
-    this.ctx.font = 'bold 10px Arial';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(count.toString(), x + offsetX, y + offsetY + 4);
-  }
-
-  drawCombatInfo(combatState) {
-    this.ctx.fillStyle = '#fff';
-    this.ctx.font = '16px Arial';
+    this.ctx.font = 'bold 18px Arial';
     this.ctx.textAlign = 'left';
-    this.ctx.fillText(`Time: ${Math.floor(combatState.timeElapsed)}s`, 10, 20);
+
+    this.ctx.fillText(`Wave ${currentWave}/${maxWaves}`, 20, 30);
+    this.ctx.fillText(`Time: ${Math.floor(combatState.timeElapsed)}s`, 20, 55);
+
+    // Units alive
+    this.ctx.fillText(`⚔️ ${combatState.alivePlayerUnits} vs ${combatState.aliveEnemyUnits}`, 20, 80);
   }
 }

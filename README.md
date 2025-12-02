@@ -1,130 +1,118 @@
-# TechFights - Grid-Based Auto Battler
+# TechFights - Wave Survival Auto Battler
 
-A browser-based auto-battler game featuring tech-themed champions with unique time-manipulation mechanics.
+A roguelike wave-survival auto-battler where you build a team of tech-themed champions and fight to survive 15 increasingly difficult waves!
 
 ## Game Overview
 
-TechFights is a tactical auto-battler where players build teams of tech-themed champions that fight automatically. The game features:
+**Goal**: Survive 15 waves and defeat the final BOSS to win!
 
-- **Echo Rhythm**: Every 3rd basic attack is special and applies Time Marks
-- **Time Marks**: Units with 3 Time Marks detonate with powerful effects
-- **Fractured Advance**: All champions use a variation of dash → fight → rewind back ability
-- **Traits System**: Origins (Chrono, Throughput, Security, Exploit) and Classes provide synergy bonuses
+**Core Loop**:
+1. Start with 2 random champions
+2. Fight auto-battle waves
+3. Win → Choose 1 of 3 rewards
+4. Repeat until wave 15
+5. Defeat the BOSS or lose!
 
 ## How to Play
 
-1. **Prep Phase**:
-   - Buy champions from the shop (costs gold)
-   - Place champions on your bench
-   - Every 3 copies of the same champion combine into a higher star level (★★★)
-   - Spend gold to reroll the shop or level up
+### Starting Out
+- You begin with 2 random champions
+- Click **"Start Run"** to begin your attempt
+- Positioning is **automatic** based on champion roles
 
-2. **Combat Phase**:
-   - Click "Start Combat" to begin
-   - Watch your team fight automatically
-   - Units attack, gain mana, and cast abilities
-   - Every 3rd attack applies Time Marks
-   - When a unit gets 3 Time Marks, they detonate with special effects
+### Combat
+- Click **"Start Wave"** to begin the battle
+- Units fight automatically
+- Each champion has:
+  - **Basic attacks** that deal damage and generate mana
+  - **One powerful ability** that casts when mana is full
 
-3. **Economy**:
-   - Earn gold each round
-   - Get interest on saved gold (1 gold per 10 gold, max 5)
-   - Spend wisely on champions, rerolls, and leveling
+### After Each Wave
+Choose **ONE reward**:
+- 📦 **New Champion** - Add a random champion to your team
+- ⭐ **Upgrade** - Increase a champion's star level (more HP, damage, ability power)
+- ❤️ **Heal** - Restore player HP
 
-## Champions
+### Win Condition
+- Reach and defeat Wave 15 (the BOSS wave)
+- If your HP reaches 0, you lose and must restart
 
-The game includes champions across 5 cost tiers:
+## Champions (9 Total)
 
-**Tier 1**: Overclock, Glitch, Proxy
-**Tier 2**: Node, Packet, Firewall
-**Tier 3**: Kernel, Cache, Quantum
-**Tier 4**: Rootkit, Sandbox (not yet in initial data)
-**Tier 5**: Coming soon!
+### Tanks
+- **Kernel** - Gains shield and taunts all enemies
+- **Firewall** - Shields entire team
 
-Each champion has:
-- Unique Echo Rhythm (3rd attack effect)
-- Custom Time Mark detonation
-- Signature Fractured Advance ability
+### DPS (Damage Dealers)
+- **Cache** - Massive single-target burst damage
+- **Packet** - Rapid multi-strike attacks
+- **Quantum** - AoE damage with slow
 
-## Traits
+### Supports
+- **Proxy** - Heals all allies
+- **Overclock** - Buffs team attack speed
 
-### Origins (Protocols)
-- **Chrono**: Time manipulation, extra marks on echo attacks
-- **Throughput**: High sustain, attack speed on detonation
-- **Security**: Tank stats, shields and damage reduction
-- **Exploit**: Execute damage, armor shredding
+### Control
+- **Glitch** - AoE stun
+- **Node** - Cone damage with silence
 
-### Classes (Modules)
-- **Skirmisher**: Mobile fighters
-- **Vanguard**: Frontline tanks
-- **Marksman**: Ranged DPS
-- **Assassin**: Backline burst
-- **Controller**: AoE control
-- **Support**: Healing and buffs
+## Star Levels
+
+Combine units through upgrades to increase their star level:
+- **1★** - Base stats
+- **2★** - 1.8x HP, 1.4x Damage
+- **3★** - 2.6x HP, 2.0x Damage
+
+## Tips & Strategy
+
+1. **Balance your team** - Mix tanks, damage, and support
+2. **Upgrade strategically** - A 3★ unit is often better than multiple 1★ units
+3. **Watch your HP** - Losing reduces HP; heal when needed
+4. **Boss preparation** - Wave 15 is MUCH harder than other waves
 
 ## Controls
 
-- **Click** shop champions to buy them
-- **Right-click** bench champions to sell them
-- **Click** units on the board to see their details
-- **Start Combat** to begin the battle phase
-- **Reroll Shop** (2 gold) to refresh available champions
-- **Level Up** to increase max team size
-
-## File Structure
-
-```
-teamfighty/
-├── index.html          # Main HTML page
-├── style.css           # Game styling
-├── game.js             # Main game controller
-├── data/
-│   ├── champions.js    # Champion data and abilities
-│   └── traits.js       # Trait definitions
-└── engine/
-    ├── constants.js    # Game constants
-    ├── utils.js        # Helper functions
-    ├── unit.js         # Unit class
-    ├── board.js        # Board management
-    ├── combat.js       # Combat engine
-    ├── timemarks.js    # Time Marks system
-    ├── traits-engine.js # Traits calculations
-    ├── shop.js         # Shop and economy
-    └── renderer.js     # Canvas rendering
-```
+- **Start Wave** - Begin combat
+- **Click units** - View detailed stats and abilities
+- **Choose rewards** - Pick one after each victory
 
 ## Running the Game
 
-Simply open `index.html` in a modern web browser. No build process required!
+Simply open `index.html` in any modern web browser. No build process required!
 
-## Implemented Features
+## Technical Details
 
-✅ Core game loop (prep → combat → prep)
-✅ Champion shop and economy system
-✅ Echo Rhythm (every 3rd attack)
-✅ Time Marks tracking and detonation
-✅ Basic combat (movement, targeting, attacking)
-✅ Mana system and ability casting
-✅ Fractured Advance abilities
-✅ Traits system (Origins)
-✅ Star level upgrades (3 copies → ★★)
-✅ Canvas rendering with health/mana bars
+Built with:
+- Vanilla JavaScript
+- HTML5 Canvas for rendering
+- No external dependencies
 
-## Future Enhancements
+## Game Structure
 
-- More sophisticated pathfinding
-- Enhanced visual effects and animations
-- Sound effects and music
-- More champions (Tier 4-5)
-- Class trait bonuses implementation
-- PvP matchmaking
-- Progression and ranked system
-- Mobile responsive controls
+```
+teamfighty/
+├── index.html          # Main game page
+├── style.css           # Modern UI styling
+├── game.js             # Wave-based game controller
+├── data/
+│   └── champions.js    # 9 champions with simplified abilities
+└── engine/
+    ├── constants.js    # Game configuration
+    ├── utils.js        # Helper functions
+    ├── unit.js         # Champion logic
+    ├── board.js        # Grid management
+    ├── combat.js       # Battle engine
+    └── renderer.js     # Canvas rendering
+```
 
-## Design Document
+## Design Philosophy
 
-See the original design document for complete game mechanics, all champion abilities, and detailed trait effects.
+- **Simple to understand** - One ability per champion, clear effects
+- **Quick rounds** - Each wave is fast-paced
+- **Meaningful choices** - Reward selection matters
+- **Clear progression** - Wave 1/15 → constant feedback
+- **Automatic positioning** - No manual micromanagement
 
 ---
 
-**TechFights** - Where code becomes combat!
+**Can you survive all 15 waves? Good luck!** 🎮
