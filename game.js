@@ -172,10 +172,24 @@ class TechFightsGame {
     // Assign grid positions based on side
     const { COLS, PLAYER_ROWS, ENEMY_ROWS } = GAME_CONSTANTS.BOARD;
     const rows = side === 'player' ? PLAYER_ROWS : ENEMY_ROWS;
+    const maxUnits = COLS * rows.length;
+
+    if (team.length > maxUnits) {
+      console.warn(`Team has ${team.length} units but only ${maxUnits} slots available. Trimming team.`);
+      team = team.slice(0, maxUnits);
+    }
 
     team.forEach((unit, index) => {
       const col = index % COLS;
-      const row = rows[Math.floor(index / COLS)];
+      const rowIndex = Math.floor(index / COLS);
+
+      if (rowIndex >= rows.length) {
+        console.error(`Cannot place unit ${unit.name} - no more rows available`);
+        return;
+      }
+
+      const row = rows[rowIndex];
+      console.log(`Positioning ${unit.name} (${side}) at (${col}, ${row})`);
       unit.setPosition(col, row);
     });
   }

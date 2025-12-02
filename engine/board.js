@@ -115,18 +115,24 @@ class Board {
   setupBattle(playerTeam, enemyTeam) {
     this.reset();
 
-    // Place player units (bottom rows)
-    playerTeam.forEach((unit, index) => {
-      const col = index % this.cols;
-      const row = GAME_CONSTANTS.BOARD.PLAYER_ROWS[Math.floor(index / this.cols)];
-      this.placeUnit(unit, col, row);
+    console.log(`Setting up battle: ${playerTeam.length} player units, ${enemyTeam.length} enemy units`);
+
+    // Place player units using their pre-set positions
+    playerTeam.forEach((unit) => {
+      const success = this.placeUnit(unit, unit.gridPos.col, unit.gridPos.row);
+      if (!success) {
+        console.error(`Failed to place player unit ${unit.name} at (${unit.gridPos.col}, ${unit.gridPos.row})`);
+      }
     });
 
-    // Place enemy units (top rows)
-    enemyTeam.forEach((unit, index) => {
-      const col = index % this.cols;
-      const row = GAME_CONSTANTS.BOARD.ENEMY_ROWS[Math.floor(index / this.cols)];
-      this.placeUnit(unit, col, row);
+    // Place enemy units using their pre-set positions
+    enemyTeam.forEach((unit) => {
+      const success = this.placeUnit(unit, unit.gridPos.col, unit.gridPos.row);
+      if (!success) {
+        console.error(`Failed to place enemy unit ${unit.name} at (${unit.gridPos.col}, ${unit.gridPos.row})`);
+      }
     });
+
+    console.log(`Board setup complete: ${this.playerUnits.length} player units placed, ${this.enemyUnits.length} enemy units placed`);
   }
 }
