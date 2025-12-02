@@ -329,13 +329,25 @@ class TechFightsGame {
 
     // Option 2: Upgrade existing champion
     if (this.playerTeam.length > 0) {
-      const randomUnit = this.playerTeam[Math.floor(Math.random() * this.playerTeam.length)];
-      options.push({
-        type: 'upgrade',
-        data: randomUnit,
-        label: `Upgrade ${randomUnit.name}`,
-        description: `Increase to ${randomUnit.starLevel + 1}★ (+50% HP/Damage) + Heal 20 HP`
-      });
+      // Find units that can still be upgraded (< 4 stars)
+      const upgradableUnits = this.playerTeam.filter(u => u.starLevel < 4);
+      if (upgradableUnits.length > 0) {
+        const randomUnit = upgradableUnits[Math.floor(Math.random() * upgradableUnits.length)];
+        options.push({
+          type: 'upgrade',
+          data: randomUnit,
+          label: `Upgrade ${randomUnit.name}`,
+          description: `Increase to ${randomUnit.starLevel + 1}★ (+50% HP/Damage) + Heal 20 HP`
+        });
+      } else {
+        // All units are max level, offer heal instead
+        options.push({
+          type: 'heal',
+          data: 50,
+          label: 'Heal 50 HP',
+          description: 'All champions maxed! Restore health instead'
+        });
+      }
     } else {
       options.push({
         type: 'heal',
@@ -375,7 +387,7 @@ class TechFightsGame {
       this.playerTeam.push(newUnit);
     } else if (reward.type === 'upgrade') {
       const unit = reward.data;
-      if (unit.starLevel < 3) {
+      if (unit.starLevel < 4) {
         unit.starLevel++;
         unit.updateStarLevel();
       }

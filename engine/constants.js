@@ -21,7 +21,8 @@ const GAME_CONSTANTS = {
   STAR_MULTIPLIERS: {
     1: { hp: 1.0, ad: 1.0 },
     2: { hp: 1.5, ad: 1.25 },
-    3: { hp: 2.0, ad: 1.6 }
+    3: { hp: 2.0, ad: 1.6 },
+    4: { hp: 2.6, ad: 2.0 }
   },
 
   // Economy
