@@ -20,8 +20,8 @@ const GAME_CONSTANTS = {
   // Star level multipliers
   STAR_MULTIPLIERS: {
     1: { hp: 1.0, ad: 1.0 },
-    2: { hp: 1.8, ad: 1.4 },
-    3: { hp: 2.6, ad: 2.0 }
+    2: { hp: 1.5, ad: 1.25 },
+    3: { hp: 2.0, ad: 1.6 }
   },
 
   // Economy

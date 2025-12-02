@@ -141,6 +141,15 @@ class Unit {
     const finalDamage = calculateDamage(damage, target.armor, 0, 'physical');
     target.takeDamage(finalDamage, this);
 
+    // Log attack
+    if (window.game) {
+      const attackerClass = this.team === 'player' ? 'log-player' : 'log-enemy';
+      const targetClass = target.team === 'player' ? 'log-player' : 'log-enemy';
+      window.game.addCombatLog(
+        `<span class="${attackerClass}">${this.name}</span> attacks <span class="${targetClass}">${target.name}</span> for <span class="log-damage">${Math.floor(finalDamage)}</span> damage`
+      );
+    }
+
     // Gain mana
     this.gainMana(this.manaPerAttack);
   }
@@ -165,6 +174,15 @@ class Unit {
     const allies = allUnits.filter(u => u.team === this.team && !u.isDead);
 
     if (enemies.length === 0 && allies.length === 0) return;
+
+    // Log ability cast
+    if (window.game) {
+      const teamClass = this.team === 'player' ? 'log-player' : 'log-enemy';
+      window.game.addCombatLog(
+        `<span class="${teamClass}">${this.name}</span> uses <span class="log-ability">${ability.name}</span>!`,
+        'log-ability'
+      );
+    }
 
     // Execute ability based on effect type
     switch (ability.effect) {
@@ -368,6 +386,15 @@ class Unit {
   die() {
     this.isDead = true;
     this.hp = 0;
+
+    // Log death
+    if (window.game) {
+      const teamClass = this.team === 'player' ? 'log-player' : 'log-enemy';
+      window.game.addCombatLog(
+        `<span class="${teamClass}">${this.name}</span> has been defeated!`,
+        'log-damage'
+      );
+    }
   }
 
   getStarString() {

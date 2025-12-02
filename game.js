@@ -15,22 +15,61 @@ class TechFightsGame {
     // Player team
     this.playerTeam = [];
 
+    // Combat log
+    this.combatLog = [];
+    this.maxLogMessages = 50;
+
     // Animation loop
     this.lastTime = 0;
     this.running = false;
+
+    // Set global reference for combat logging
+    window.game = this;
 
     this.initUI();
     this.initMouseEvents();
     this.initializeGame();
   }
 
+  addCombatLog(message, type = 'normal') {
+    this.combatLog.push({ message, type, time: Date.now() });
+    if (this.combatLog.length > this.maxLogMessages) {
+      this.combatLog.shift();
+    }
+    this.updateCombatLog();
+  }
+
+  clearCombatLog() {
+    this.combatLog = [];
+    this.updateCombatLog();
+  }
+
+  updateCombatLog() {
+    const logContainer = document.getElementById('combat-log-messages');
+    if (!logContainer) return;
+
+    // Show last 10 messages
+    const recentMessages = this.combatLog.slice(-10);
+    logContainer.innerHTML = recentMessages.map(log =>
+      `<div class="log-message ${log.type}">${log.message}</div>`
+    ).join('');
+
+    // Auto-scroll to bottom
+    const parent = document.getElementById('combat-log');
+    if (parent) {
+      parent.scrollTop = parent.scrollHeight;
+    }
+  }
+
   initializeGame() {
-    // Start with 2 random champions at star level 1
+    // Start with 3 random champions at star level 1
     const champ1 = this.getRandomChampion();
     const champ2 = this.getRandomChampion();
+    const champ3 = this.getRandomChampion();
 
     this.playerTeam.push(new Unit(champ1, 1, 'player'));
     this.playerTeam.push(new Unit(champ2, 1, 'player'));
+    this.playerTeam.push(new Unit(champ3, 1, 'player'));
 
     this.updateUI();
     this.showStartScreen();
@@ -139,6 +178,10 @@ class TechFightsGame {
   startCombat() {
     if (this.gameState !== 'prep') return;
 
+    // Clear and initialize combat log
+    this.clearCombatLog();
+    this.addCombatLog(`⚔️ WAVE ${this.currentWave} START!`, 'log-ability');
+
     // Heal and reset all player units before combat
     this.healPlayerTeam();
 
@@ -218,12 +261,12 @@ class TechFightsGame {
 
       for (let i = 0; i < enemyCount; i++) {
         const championData = this.getRandomChampion();
-        // Star level increases every 6 waves
-        const starLevel = Math.min(1 + Math.floor((waveNumber - 1) / 6), 3);
+        // Star level increases every 8 waves
+        const starLevel = Math.min(1 + Math.floor((waveNumber - 1) / 8), 3);
         const enemy = new Unit(championData, starLevel, 'enemy');
 
-        // More gradual stat scaling: +5% per wave instead of +10%
-        const waveMultiplier = 1 + (waveNumber - 1) * 0.05;
+        // More gradual stat scaling: +3% per wave for better balance
+        const waveMultiplier = 1 + (waveNumber - 1) * 0.03;
         enemy.maxHp *= waveMultiplier;
         enemy.hp = enemy.maxHp;
         enemy.attackDamage *= waveMultiplier;
@@ -291,7 +334,7 @@ class TechFightsGame {
         type: 'upgrade',
         data: randomUnit,
         label: `Upgrade ${randomUnit.name}`,
-        description: `Increase to ${randomUnit.starLevel + 1}★ (+HP, +Damage, +Ability)`
+        description: `Increase to ${randomUnit.starLevel + 1}★ (+50% HP/Damage) + Heal 20 HP`
       });
     } else {
       options.push({
@@ -336,6 +379,8 @@ class TechFightsGame {
         unit.starLevel++;
         unit.updateStarLevel();
       }
+      // Bonus: Also heal 20 HP when upgrading
+      this.playerHP = Math.min(this.playerHP + 20, 100);
     } else if (reward.type === 'heal') {
       this.playerHP = Math.min(this.playerHP + reward.data, 100);
     }
